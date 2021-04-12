@@ -1,0 +1,78 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation Template for c6g.metal instance launching",
+
+  "Parameters" : {
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type" : "AWS::EC2::KeyPair::KeyName"
+    },
+    "VPCSubnetId" : {
+      "Description" : "Subnet for the EC2 instance.",
+      "Type" : "AWS::EC2::Subnet::Id"
+    },
+    "SecurityGroupId" : {
+      "Description" : "The SecurityGroupId of the EC2 instance.",
+      "Type" : "AWS::EC2::SecurityGroup::Id"
+    }
+  },
+  "Mappings" : {
+    "RegionMap" : {
+      "us-east-1"      : { "AMI" : "ami-0b75998a97c952252" },
+      "us-east-2"      : { "AMI" : "ami-064446ad1d755489e" },
+      "us-west-1"      : { "AMI" : "ami-07711e34185f62b48" },
+      "us-west-2"      : { "AMI" : "ami-0ae8c80279572fa66" },
+      "ap-south-1"     : { "AMI" : "ami-0a6638920f7143fb2" }
+    }
+  },
+  "Resources" : {
+    "EIP" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Domain" : "vpc"
+      }
+    },
+    "EIPAssociation" : {
+        "Type" : "AWS::EC2::EIPAssociation",
+        "Properties" : {
+            "AllocationId" : { "Fn::GetAtt" : [ "EIP", "AllocationId" ]},
+            "NetworkInterfaceId" : { "Ref" : "ENI1" }
+        }
+    },
+    "ENI1" : {
+      "Type" : "AWS::EC2::NetworkInterface",
+      "Properties" : {
+        "GroupSet" : [ { "Ref" : "SecurityGroupId" } ],
+        "SubnetId": { "Ref" : "VPCSubnetId" }
+      }
+    },
+    "ENI2" : {
+      "Type" : "AWS::EC2::NetworkInterface",
+      "Properties" : {
+        "GroupSet" : [ { "Ref" : "SecurityGroupId" } ],
+        "SubnetId": { "Ref" : "VPCSubnetId" }
+      }
+    },
+    "Ec2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
+        "InstanceType": "c6g.metal",
+        "KeyName": { "Ref" : "KeyName" },
+        "NetworkInterfaces" : [ { "NetworkInterfaceId" : { "Ref" : "ENI1" }, "DeviceIndex" : "0" },
+                                { "NetworkInterfaceId" : { "Ref" : "ENI2" }, "DeviceIndex" : "1" } ]
+      }
+    }
+  },
+  "Outputs" : {
+    "InstanceId" : {
+      "Value" : { "Ref" : "Ec2Instance" },
+      "Description" : "Instance Id of newly created instance"
+    },
+    "InstanceIPAddress" : {
+      "Value" : { "Fn::GetAtt" : ["Ec2Instance", "PublicIp"] },
+      "Description" : "Public IP address of instance"
+    }
+  }
+}
